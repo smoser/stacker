@@ -11,7 +11,7 @@ import (
 	"github.com/anuvu/stacker/lib"
 	"github.com/pkg/errors"
 	"github.com/udhos/equalfile"
-	"github.com/vbatts/go-mtree"
+	mtree "github.com/vbatts/go-mtree"
 )
 
 // filesDiffer returns true if the files are different, false if they are the same.
@@ -61,7 +61,7 @@ func filesDiffer(p1 string, info1 os.FileInfo, p2 string, info2 os.FileInfo) (bo
 	return !eq, nil
 }
 
-func importFile(imp string, cacheDir string) (string, error) {
+func importFile(imp string, cacheDir string, target string) (string, error) {
 	e1, err := os.Lstat(imp)
 	if err != nil {
 		return "", errors.Wrapf(err, "couldn't stat import %s", imp)
@@ -157,7 +157,7 @@ func importFile(imp string, cacheDir string) (string, error) {
 
 }
 
-func acquireUrl(c StackerConfig, i string, cache string) (string, error) {
+func acquireUrl(c StackerConfig, i string, cache string, target string) (string, error) {
 	url, err := url.Parse(i)
 	if err != nil {
 		return "", err
@@ -165,19 +165,19 @@ func acquireUrl(c StackerConfig, i string, cache string) (string, error) {
 
 	// It's just a path, let's copy it to .stacker.
 	if url.Scheme == "" {
-		return importFile(i, cache)
+		return importFile(i, cache, target)
 	} else if url.Scheme == "http" || url.Scheme == "https" {
 		// otherwise, we need to download it
-		return Download(cache, i)
+		return Download(cache, i, target)
 	} else if url.Scheme == "stacker" {
 		p := path.Join(c.RootFSDir, url.Host, "rootfs", url.Path)
-		return importFile(p, cache)
+		return importFile(p, cache, target)
 	}
 
 	return "", fmt.Errorf("unsupported url scheme %s", i)
 }
 
-func Import(c StackerConfig, name string, imports []string) error {
+func Import(c StackerConfig, name string, imports map[string]string) error {
 	dir := path.Join(c.StackerDir, "imports", name)
 
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -189,14 +189,14 @@ func Import(c StackerConfig, name string, imports []string) error {
 		return errors.Wrapf(err, "couldn't read existing directory")
 	}
 
-	for _, i := range imports {
-		name, err := acquireUrl(c, i, dir)
+	for src, target := range imports {
+		_, err := acquireUrl(c, src, dir, target)
 		if err != nil {
 			return err
 		}
 
 		for i, ext := range existing {
-			if ext.Name() == path.Base(name) {
+			if ext.Name() == path.Base(target) {
 				existing = append(existing[:i], existing[i+1:]...)
 				break
 			}

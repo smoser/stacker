@@ -13,9 +13,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/anmitsu/go-shlex"
+	shlex "github.com/anmitsu/go-shlex"
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const (
@@ -186,7 +186,7 @@ func (l *Layer) ParseFullCommand() ([]string, error) {
 	})
 }
 
-func (l *Layer) ParseImport() ([]string, error) {
+func (l *Layer) ParseImport() (map[string]string, error) {
 	rawImports, err := l.getStringOrStringSlice(l.Import, func(s string) ([]string, error) {
 		return strings.Split(s, "\n"), nil
 	})
@@ -194,27 +194,12 @@ func (l *Layer) ParseImport() ([]string, error) {
 		return nil, err
 	}
 
-	var absImports []string
-	for _, rawImport := range rawImports {
-		absImport, err := l.getAbsPath(rawImport)
-		if err != nil {
-			return nil, err
-		}
-		absImports = append(absImports, absImport)
-	}
-	return absImports, nil
+	return l.getAbsMappingFromStrings(rawImports)
 }
 
-func (l *Layer) ParseBinds() (map[string]string, error) {
-	rawBinds, err := l.getStringOrStringSlice(l.Binds, func(s string) ([]string, error) {
-		return []string{s}, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	absBinds := make(map[string]string, len(rawBinds))
-	for _, bind := range rawBinds {
+func (l *Layer) getAbsMappingFromStrings(srcl []string) (map[string]string, error) {
+	binds := make(map[string]string, len(srcl))
+	for _, bind := range srcl {
 		parts := strings.Split(bind, "->")
 		if len(parts) != 1 && len(parts) != 2 {
 			return nil, fmt.Errorf("invalid bind mount %s", bind)
@@ -232,11 +217,21 @@ func (l *Layer) ParseBinds() (map[string]string, error) {
 			target = strings.TrimSpace(parts[1])
 		}
 
-		absBinds[absSource] = target
+		binds[absSource] = target
 	}
 
-	return absBinds, nil
+	return binds, nil
 
+}
+
+func (l *Layer) ParseBinds() (map[string]string, error) {
+	rawBinds, err := l.getStringOrStringSlice(l.Binds, func(s string) ([]string, error) {
+		return []string{s}, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return l.getAbsMappingFromStrings(rawBinds)
 }
 
 func (l *Layer) ParseRun() ([]string, error) {
