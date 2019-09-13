@@ -18,7 +18,7 @@ import (
 	"github.com/openSUSE/umoci/pkg/fseval"
 	ispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
-	"github.com/vbatts/go-mtree"
+	mtree "github.com/vbatts/go-mtree"
 	"golang.org/x/sys/unix"
 
 	stackeroci "github.com/anuvu/stacker/oci"
